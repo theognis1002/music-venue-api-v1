@@ -2,9 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Venue API Endpoints</title>
 </head>
 <body>
-<h1>Test</h1>
+    <h1>Venue API Endpoints</h1>
+    <h3>{{ request.base_url }}</h3>
+    {% for endpoint in endpoints %}
+    <ul>
+        <li>Route: "{{ endpoint.route }}"</li>
+        <ul>
+            <li>Content-Type: application/json</li>
+            <li>Description: {{ endpoint.description}}</li>
+            <li>Method(s): {{ endpoint.methods }}</li>
+        </ul>
+    </ul>
+    {% endfor %}
 </body>
 </html>
