@@ -1,12 +1,12 @@
-from flask import Flask, render_template, request, jsonify
-from flask_restplus import Api, Resource, fields
-from werkzeug.utils import cached_property
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, String, text
-from sqlalchemy.dialects.mysql import INTEGER
-from sqlalchemy.orm import sessionmaker, load_only
 import json
 
+from flask import Flask, jsonify, render_template, request
+from flask_restplus import Api, Resource, fields
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, String, create_engine, text
+from sqlalchemy.dialects.mysql import INTEGER
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 app = Flask(__name__)
 api = Api(app=app, version='1.0', default='Endpoints', default_label='GET/POST venue information', title='Music & Sports Venue API', prefix='/api/v1')
@@ -14,6 +14,8 @@ ns = api.namespace('Venues', description='')
 
 config = json.loads(open('config.json').read())
 engine = create_engine(config['DATABASE_URI'])
+db = SQLAlchemy(app)
+
 Session = sessionmaker(bind=engine)
 session = Session()
 Base = declarative_base()
@@ -35,7 +37,7 @@ my_fields = api.model('MyModel', {
 })
 
 
-@api.route('/endpoints', methods=['GET'])
+@api.route('/', methods=['GET'])
 @api.doc(False)
 class VenueEndpoints(Resource):
     def get(self):
@@ -56,7 +58,7 @@ class VenueEndpoints(Resource):
 
 
 @ns.param('venue', 'Search database by venue name or substring')
-@api.route('/get_venue', methods=['GET'])
+@api.route('/venues', methods=['GET', 'POST'])
 class VenueInfo(Resource):
     def get(self):
         """get venue information from database"""
@@ -78,12 +80,13 @@ class VenueInfo(Resource):
                     return response
                 else:
                     response = jsonify([{"error": f"No venue found for following query: '{venue_query}'"}])
-                    response.status_code = 400
+                    response.status_code = 404
                     return response
 
             else:
-                response = jsonify([{"error": f"Please provide valid venue query."}])
-                response.status_code = 400
+                venues = session.query(Venue).all()
+                response = jsonify(venues)
+                response.status_code = 200
                 return response
 
         except (TypeError, KeyError, AttributeError) as e:
@@ -91,13 +94,10 @@ class VenueInfo(Resource):
             response.status_code = 400
             return response
 
-
-@ns.param('venue', 'Search database by venue name or substring')
-@ns.param('capacity', 'Maximum venue capacity', type='Integer')
-@ns.param('location', 'City name')
-@ns.param('state', 'State abbreviation (ie; CA)')
-@api.route('/add_venue', methods=['POST'])
-class AddVenue(Resource):
+    @ns.param('venue', 'Search database by venue name or substring')
+    @ns.param('capacity', 'Maximum venue capacity', type='Integer')
+    @ns.param('location', 'City name')
+    @ns.param('state', 'State abbreviation (ie; CA)')
     def post(self):
         """add venue information to database"""
         if request.method == 'POST':
@@ -125,5 +125,23 @@ class AddVenue(Resource):
                 return response
 
 
+@ns.param('venue', 'Search database by venue name or substring')
+@api.route('/venues/<int:venue_id>', methods=['GET', 'POST'])
+class VenueDetailsInfo(Resource):
+    def get(self, venue_id):
+        """get venue information from database"""
+        try:
+
+            venue = session.query(Venue).get(venue_id)
+            response = jsonify(venue)
+            response.status_code = 200
+            return response
+
+        except Exception as e:
+            response = jsonify({"error": f"{e.__class__.__name__} - {str(e)}"})
+            response.status_code = 400
+            return response
+
 if __name__ == '__main__':
     app.run(debug=True)
+
